@@ -4,7 +4,6 @@ namespace App\Exceptions;
 
 use Exception;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -44,7 +43,7 @@ class Handler extends ExceptionHandler
             //
         });
 
-        $this->renderable(function (Exception $e, Request $request) {
+        $this->renderable(function(Exception $e, Request $request){
             return $this->handleException($e, $request);
         });
     }
@@ -53,16 +52,16 @@ class Handler extends ExceptionHandler
      * @param \Exception $exception
      * @param \Illuminate\Http\Request $request
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\Http\JsonResponse|void
      */
-    public function handleException(Exception $exception, Request $request): JsonResponse
+    public function handleException(Exception $exception, Request $request)
     {
         if ($exception instanceof NotFoundHttpException && $request->wantsJson()) {
-            return new JsonResponse(['message' => 'The specified URL cann\'t be found.'], Response::HTTP_NOT_FOUND);
+            return response()->json(['message' => 'The specified URL cann\'t be found'], Response::HTTP_NOT_FOUND);
         }
 
         if ($exception instanceof AccessDeniedHttpException && $request->wantsJson()) {
-            return new JsonResponse(['message' => 'You are not allowed to access this resource.'], Response::HTTP_FORBIDDEN);
+            return response()->json(['message' => 'You are not allowed to access this resource.'], Response::HTTP_FORBIDDEN);
         }
     }
 }
