@@ -67,7 +67,7 @@ class AuthController extends Controller
             }
 
             return new JsonResponse([
-                'message' => 'login Successfull',
+                'message' => 'Login Successfull.',
                 'token'   => $response->json() ], Response::HTTP_OK);
 
         } catch (\Exception $e) {

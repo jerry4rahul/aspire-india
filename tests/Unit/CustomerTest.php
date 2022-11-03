@@ -2,109 +2,113 @@
 
 namespace Tests\Unit;
 
+use App\Enums\LoanStatus;
 use App\Models\User;
-use App\Models\UserLoan;
+use Carbon\Carbon;
 use Tests\TestCase;
 use Laravel\Passport\Passport;
+use Faker\Factory;
 
 class CustomerTest extends TestCase
 {
-    const CUSTOMER_EMAIL = 'rahul@gmail.com';
     const ACCEPT         = 'application/json';
+    const CUSTOMER_SCOPE = 'customer';
+    const ADMIN_EMAIL    = 'admin@gmail.com';
+    const ADMIN_SCOPE    = 'admin';
 
     /**
      * @return void
      */
-    public function test_api_register()
+    public function test_api_customer_register()
     {
-        $response = $this->withHeaders([
-            'accept'   => self::ACCEPT])->post(env('APP_URL'). '/api/register', [
-            'name'     => 'Rahul Kumar Sharma',
-            'email'    => self::CUSTOMER_EMAIL,
+        $faker    = Factory::create();
+        $response = $this->withHeaders(['accept' => self::ACCEPT])->post(env('APP_URL'). '/api/register', [
+            'name'     => $faker->name(),
+            'email'    =>  $faker->unique()->safeEmail,
             'password' => 'password'
         ]);
 
         $response->assertStatus(200);
+        $response->assertJson(['message' => 'Registration Successfull.']);
     }
 
     /**
      * @return void
      */
-    public function test_api_login()
+    public function test_api_customer_login()
     {
-        $response = $this->withHeaders([
-            'accept'   => self::ACCEPT])->post(env('APP_URL'). '/api/login', [
-            'email'    => self::CUSTOMER_EMAIL,
+        $customer = User::factory()->create();
+        $response = $this->withHeaders(['accept' => self::ACCEPT])->post(env('APP_URL'). '/api/login', [
+            'email'    => $customer->email,
             'password' => 'password'
         ]);
 
         $response->assertStatus(200);
+        $response->assertJson(['message' => 'Login Successfull.']);
+        $response->assertJsonStructure(['token' => [
+            'token_type', 'expires_in', 'access_token', 'refresh_token'
+        ]]);
     }
 
     /**
      * @return void
      */
-    public function test_api_user_submit_loan_request()
+    public function test_api_customer_submit_loan_request()
     {
-        Passport::actingAs(User::where('email', self::CUSTOMER_EMAIL)->first(), ['customer']);
+        $customer = User::factory()->create();
+        Passport::actingAs($customer, [self::CUSTOMER_SCOPE]);
 
-        $response = $this->withHeaders([
-            'accept' => self::ACCEPT])->post(env('APP_URL'). '/api/submit-loan-request', [
-            'amount' => 100,
-            'term'   => 5
+        $response = $this->withHeaders(['accept' => self::ACCEPT])->post(env('APP_URL'). '/api/submit-loan-request', [
+            'amount' => rand(1, 100),
+            'term'   => rand(1, 5)
         ]);
 
         $response->assertStatus(200);
+        $response->assertJson(['message' => 'New Loan Request Submitted Successfully.']);
+        $response->assertJsonStructure(['loan_details' => [
+            'id', 'amount', 'term', 'status', 'repayments' => ['*' => [
+                'id', 'amount', 'repayment_date', 'status'
+        ]]]]);
     }
 
     /**
      * @return void
      */
-    public function test_api_user_get_all_associated_loans()
+    public function test_api_customer_get_all_associated_loans()
     {
-        Passport::actingAs(User::where('email', self::CUSTOMER_EMAIL)->first(), ['customer']);
+        $customer = User::factory()->create();
+        Passport::actingAs($customer, [self::CUSTOMER_SCOPE]);
 
-        $response = $this->withHeaders([
-            'accept' => self::ACCEPT])->get(env('APP_URL'). '/api/all-loans', [
-            'amount' => 100,
-            'term'   => 5
-        ]);
+        $response = $this->withHeaders(['accept' => self::ACCEPT])->get(env('APP_URL'). '/api/all-loans');
 
         $response->assertStatus(200);
+        $response->assertJsonStructure(['data' => ['*' => [
+            'id', 'amount', 'term', 'status', 'repayments' => ['*' => [
+                'id', 'amount', 'repayment_date', 'status'
+            ]]
+        ]]]);
     }
 
     /**
      * @return void
      */
-    public function test_api_loan_change_status_by_admin()
+    public function test_api_customer_add_repayments_for_the_loan()
     {
-        $user = User::where('email', self::CUSTOMER_EMAIL)->first();
-        Passport::actingAs(User::where('email', 'admin@gmail.com')->first(), ['admin']);
+        $customer   = User::factory()->create();
+        $loan       = $customer->loans()->create(['amount' => 100, 'term' => 2, 'status' => LoanStatus::APPROVED]);
+        $repayments = $loan->loanRepayments()->createMany([
+            ['amount' => 50.00, 'repayment_date' => Carbon::now()->addWeek(1)],
+            ['amount' => 50.00, 'repayment_date' => Carbon::now()->addWeek(2)],
+        ]);
 
-        $response = $this->withHeaders([
-            'accept'   => self::ACCEPT])->post(env('APP_URL'). '/api/loan/'. $user->loans->first()->id . '/change-status', [
-            'status'   => 'APPROVED',
+        Passport::actingAs($customer, [self::CUSTOMER_SCOPE]);
+
+        $response  = $this->withHeaders(['accept' => self::ACCEPT])->post(env('APP_URL'). '/api/loan/'. $loan->id . '/add-repayment', [
+            'loan_repayment_id'  => $repayments[0]->id,
+            'amount'             => $repayments[0]->amount
         ]);
 
         $response->assertStatus(200);
-    }
-
-    /**
-     * @return void
-     */
-    public function test_api_user_add_repayments_for_the_loan()
-    {
-        $user = User::where('email', self::CUSTOMER_EMAIL)->first();
-        Passport::actingAs($user, ['customer']);
-
-        echo $user->loans->first()->id;
-
-        $response = $this->withHeaders([
-            'accept'             => self::ACCEPT])->post(env('APP_URL'). '/api/loan/'. $user->loans->first()->id . '/add-repayment', [
-            'loan_repayment_id'  => $user->loans->first()->loanRepayments->first()->id,
-            'amount'             => $user->loans->first()->loanRepayments->first()->amount
-        ]);
-
-        $response->assertStatus(200);
+        $response->assertJson(['message' => 'Your Repayment is successfully completed. Thank you!']);
     }
 }

@@ -45,9 +45,8 @@ class UserController extends Controller
             }
 
             return new JsonResponse([
-                'message'   => 'New Loan Request Submitted Successfully.',
-                'status'    => LoanStatus::fromValue(LoanStatus::PENDING)->key,
-                'repayment' => LoanRepaymentResource::collection($loan->loanRepayments) ], Response::HTTP_OK);
+                'message'      => 'New Loan Request Submitted Successfully.',
+                'loan_details' => new LoanResource($loan)], Response::HTTP_OK);
 
         } catch (\Exception $e) {
             Log::channel('user')->critical($e->getMessage(), ['data' => $data, 'method' => __METHOD__]);

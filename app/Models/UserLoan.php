@@ -20,6 +20,7 @@ class UserLoan extends Model
         'user_id',
         'amount',
         'term',
+        'status'
     ];
 
     /**

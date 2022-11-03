@@ -19,7 +19,7 @@ class LoanResource extends JsonResource
             'id'         => $this->id,
             'amount'     => $this->amount,
             'term'       => $this->term,
-            'status'     => LoanStatus::fromValue($this->status)->key,
+            'status'     => LoanStatus::fromValue($this->status ?? LoanStatus::PENDING)->key,
             'repayments' => LoanRepaymentResource::collection($this->loanRepayments)
         ];
     }
